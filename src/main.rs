@@ -4,26 +4,26 @@ use std::collections::HashMap;
 use url::Url;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // get the google config
+
+    // get the google youtube api
     let config = Config::builder()
         .add_source(config::File::new("secrets",config::FileFormat::Ini))
         .build()
         .unwrap();
     let api_key: String = config.get_string("youtube.api_key")?;
+
     let client = reqwest::blocking::Client::new();
     let base_url: &str = "https://www.googleapis.com/youtube/v3/commentThreads";
 
     let video_url: &str = "https://youtu.be/Ou5xmqgkN9c";
 
-    // parse the url for  the video is
-    let url = Url::parse(video_url).unwrap();
 
-    let video_id = url.path().split('/').last().unwrap();
+    let video_id = parse_youtube_url(video_url).unwrap();
 
     // add paramaters 
     let mut params = HashMap::new();
     params.insert("part","snippet,replies");
-    params.insert("videoId", video_url);
+    params.insert("videoId", &video_id);
     params.insert("key",&api_key);
     
     let resp_1 = client.get(base_url)
@@ -50,7 +50,7 @@ fn parse_youtube_url(video_url: &str) -> Option<String> {
     };
 
     //there are 2 types of url, the shared youtu.be/VIDEO_ID
-    //and the youtube.com/watch?v=Z7DZs4OxOls
+    //and the youtube.com/watch?v=VIDEO_ID
     let video_id = match url.host_str()
     {
         Some("youtube.com") =>  url.query().map(|q| q.to_owned()),
