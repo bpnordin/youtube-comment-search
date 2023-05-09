@@ -51,10 +51,7 @@ fn parse_youtube_url(video_url: &str) -> Option<String> {
 
     let url = match Url::parse(video_url){
         Ok(url) => url,
-        Err(_) =>{
-            println!("Failed to perform operation");
-            return None
-        },
+        Err(_) => return None
     };
 
     //there are 2 types of url, the shared youtu.be/VIDEO_ID
