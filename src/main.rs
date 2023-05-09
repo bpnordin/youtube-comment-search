@@ -2,6 +2,7 @@ use std::error::Error;
 use config::Config;
 use std::collections::HashMap;
 use url::Url;
+use reqwest::blocking::Client;
 
 fn main() -> Result<(), Box<dyn Error>> {
 
@@ -26,7 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         };
 
-    let client = reqwest::blocking::Client::builder().build()?;
+    let client = Client::builder().build()?;
 
     let request_get_comments = request_video_comment_thread(
         &video_id, &api_key, &client).unwrap();
@@ -38,9 +39,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+
 fn request_video_comment_thread(video_id: &str,
                                 api_key: &str,
-                                client: &reqwest::blocking::Client) -> Option<String> {
+                                client: &Client) -> Option<String> {
 
     // add paramaters 
     let base_url: &str = "https://www.googleapis.com/youtube/v3/commentThreads";
