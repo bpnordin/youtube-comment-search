@@ -1,4 +1,4 @@
-use std::{error::Error, fmt::format};
+use std::error::Error;
 use config::Config;
 use std::collections::HashMap;
 use url::Url;
@@ -12,36 +12,54 @@ fn main() -> Result<(), Box<dyn Error>> {
         .unwrap();
     let api_key: String = config.get_string("youtube.api_key")?;
 
-    let client = reqwest::blocking::Client::new();
-    let base_url: &str = "https://www.googleapis.com/youtube/v3/commentThreads";
-
     // TODO make this a user input so this can be done with CLI
     let video_url: &str = "https://youtu.be/Ou5xmqgkN9c";
 
-
-    let video_id = match parse_youtube_url(video_url){
+    let video_id = match parse_youtube_url(video_url) 
+        {
         Some(value) => value,
-        None =>{
-            println!("Failed to parse the URL \x1b[31m{}\x1b[0m...exiting",video_url);
+        None =>
+            {
+            println!("Failed to parse the URL \x1b[31m{}\x1b[0m...exiting"
+                     ,video_url);
             return Ok(())
-        }
-    };
+            }
+        };
 
+    let client = reqwest::blocking::Client::builder().build()?;
+
+    let request_get_comments = request_video_comment_thread(
+        &video_id, &api_key, &client).unwrap();
+
+    //use ths to open the request in a browser -- for now
+    println!("{}",request_get_comments);
+    println!("Video ID: {}", video_id);
+
+    Ok(())
+}
+
+fn request_video_comment_thread(video_id: &str,
+                                api_key: &str,
+                                client: &reqwest::blocking::Client) -> Option<String> {
 
     // add paramaters 
+    let base_url: &str = "https://www.googleapis.com/youtube/v3/commentThreads";
+    // https://developers.google.com/youtube/v3/docs/commentThreads/list
     let mut params = HashMap::new();
-    params.insert("part","snippet,replies");
+    params.insert("part","id");
     params.insert("videoId", &video_id);
     params.insert("key",&api_key);
-    
-    let resp_1 = client.get(base_url)
+    params.insert("maxResults","100");
+
+    let request_get_comments = match client.get(base_url)
         .query(&params)
-        .send()?
-        .text()?;
-    println!("{:#?}", resp_1);
-    
-    println!("Video ID: {}", video_id);
-    Ok(())
+        .build() {
+            Ok(req) => req,
+            Err(_) => return None
+        };
+    //TODO return the request in json so I can parse
+    Some(request_get_comments.url().to_string())
+
 }
 
 fn parse_youtube_url(video_url: &str) -> Option<String> {
@@ -58,6 +76,7 @@ fn parse_youtube_url(video_url: &str) -> Option<String> {
     //and the youtube.com/watch?v=VIDEO_ID
     let video_id = match url.host_str()
     {
+        //https://doc.rust-lang.org/std/option/enum.Option.html#method.map
         Some("youtube.com") =>  url.query().map(|q| q.to_owned()),
         Some("youtu.be") =>  url.path().split('/').last().map(|s| s.to_owned()),
         _ =>  None
