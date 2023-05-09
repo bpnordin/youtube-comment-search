@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, fmt::format};
 use config::Config;
 use std::collections::HashMap;
 use url::Url;
@@ -15,10 +15,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     let client = reqwest::blocking::Client::new();
     let base_url: &str = "https://www.googleapis.com/youtube/v3/commentThreads";
 
+    // TODO make this a user input so this can be done with CLI
     let video_url: &str = "https://youtu.be/Ou5xmqgkN9c";
 
 
-    let video_id = parse_youtube_url(video_url).unwrap();
+    let video_id = match parse_youtube_url(video_url){
+        Some(value) => value,
+        None =>{
+            println!("Failed to parse the URL \x1b[31m{}\x1b[0m...exiting",video_url);
+            return Ok(())
+        }
+    };
+
 
     // add paramaters 
     let mut params = HashMap::new();
@@ -43,10 +51,10 @@ fn parse_youtube_url(video_url: &str) -> Option<String> {
 
     let url = match Url::parse(video_url){
         Ok(url) => url,
-        Err(err) =>{
-            eprintln!("Error: {}", err);
+        Err(_) =>{
+            println!("Failed to perform operation");
             return None
-        }
+        },
     };
 
     //there are 2 types of url, the shared youtu.be/VIDEO_ID
