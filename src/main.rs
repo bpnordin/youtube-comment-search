@@ -2,7 +2,8 @@ use std::error::Error;
 use config::Config;
 use std::collections::HashMap;
 use url::Url;
-use reqwest::blocking::Client;
+use reqwest::blocking::{Client,Response};
+use serde_json::Value;
 
 fn main() -> Result<(), Box<dyn Error>> {
 
@@ -29,20 +30,43 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let client = Client::builder().build()?;
 
+    //parse with serde_json
     let request_get_comments = request_video_comment_thread(
-        &video_id, &api_key, &client).unwrap();
+        &video_id, &api_key, &client).unwrap().text()?;
+    
+    let yt_data: Value = serde_json::from_str(&request_get_comments)?;
+    println!("{:#?}",yt_data["items"][0]["id"]);
 
-    //use ths to open the request in a browser -- for now
-    println!("{}",request_get_comments);
     println!("Video ID: {}", video_id);
 
     Ok(())
 }
 
+fn request_next_page(video_id: &str, api_key: &str, client: &Client, url: &str,
+                                next_page_token: &str) -> Option<String> {
+    //create the request for the next page
 
-fn request_video_comment_thread(video_id: &str,
-                                api_key: &str,
-                                client: &Client) -> Option<String> {
+    // https://developers.google.com/youtube/v3/docs/commentThreads/list
+    let mut params = HashMap::new();
+    params.insert("part","id");
+    params.insert("videoId", &video_id);
+    params.insert("key",&api_key);
+    params.insert("maxResults","5");
+    params.insert("pageToken",&next_page_token);
+
+    let request_next_page = match client.get(url)
+        .query(&params)
+        .build() {
+            Ok(req) => req,
+            Err(_) => return None
+        };
+    
+    Some(request_next_page.url().to_string())
+
+}
+
+fn request_video_comment_thread(video_id: &str, api_key: &str,
+                                client: &Client) -> Option<Response> {
 
     // add paramaters 
     let base_url: &str = "https://www.googleapis.com/youtube/v3/commentThreads";
@@ -51,7 +75,7 @@ fn request_video_comment_thread(video_id: &str,
     params.insert("part","id");
     params.insert("videoId", &video_id);
     params.insert("key",&api_key);
-    params.insert("maxResults","100");
+    params.insert("maxResults","5");
 
     let request_get_comments = match client.get(base_url)
         .query(&params)
@@ -59,8 +83,12 @@ fn request_video_comment_thread(video_id: &str,
             Ok(req) => req,
             Err(_) => return None
         };
-    //TODO return the request in json so I can parse
-    Some(request_get_comments.url().to_string())
+
+    match client.execute(request_get_comments)
+    {
+        Ok(response) => Some(response),
+        Err(_) => None
+    }
 
 }
 
