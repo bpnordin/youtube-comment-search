@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         &video_id, &api_key, &client).unwrap().text()?;
     
     let yt_data: Value = serde_json::from_str(&request_get_comments)?;
-    println!("{:#?}",yt_data["items"][0]["id"]);
+    println!("{:#?}",yt_data);
 
     println!("Video ID: {}", video_id);
 
@@ -72,7 +72,7 @@ fn request_video_comment_thread(video_id: &str, api_key: &str,
     let base_url: &str = "https://www.googleapis.com/youtube/v3/commentThreads";
     // https://developers.google.com/youtube/v3/docs/commentThreads/list
     let mut params = HashMap::new();
-    params.insert("part","id");
+    params.insert("part","id,replies");
     params.insert("videoId", &video_id);
     params.insert("key",&api_key);
     params.insert("maxResults","5");
