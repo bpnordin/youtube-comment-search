@@ -1,8 +1,12 @@
 [package]
-name = "youtube-comment-search"
+name = "youtube_comment_search"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+serde_json = "1.0.96"
+config = "0.13.3"
+url = "2.3.1"
