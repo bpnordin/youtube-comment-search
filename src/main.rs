@@ -2,17 +2,19 @@ use std::error::Error;
 use config::Config;
 use reqwest::blocking::{Client,Response};
 use serde_json::Value;
-use youtube_comment_search::{youtube_api,config_youtube};
+use youtube_comment_search::{youtube_api,youtube_config,youtube_url};
 
 fn main() -> Result<(), Box<dyn Error>> {
 
     //TODO improve the config intake error handling
-    let api_key: String = config_youtube::new("secrets.ini")?;
+    //and move this to a config option ffrom the cli
+    let api_key: String = youtube_config::new("secrets.ini")?;
 
     // TODO make this a user input so this can be done with CLI
+    // and more 
     let video_url: &str = "https://youtu.be/Ou5xmqgkN9c";
 
-    let video_id = match youtube_api::parse_youtube_url(video_url) 
+    let video_id = match youtube_url::parse_youtube_url(video_url) 
         {
         Some(value) => value,
         None =>

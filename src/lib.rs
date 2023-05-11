@@ -1,4 +1,4 @@
-pub mod config_youtube {
+pub mod youtube_config {
 
     use config as config_reader;
     use config::ConfigError;
@@ -18,7 +18,6 @@ pub mod config_youtube {
 pub mod youtube_api { 
 
     use std::collections::HashMap;
-    use url::Url;
     use reqwest::blocking::{Client,Response};
 
     pub fn request_next_page(video_id: &str, api_key: &str, client: &Client, url: &str,
@@ -70,6 +69,10 @@ pub mod youtube_api {
         }
 
     }
+}
+ pub mod youtube_url {
+
+    use url::Url;
 
     pub fn parse_youtube_url(video_url: &str) -> Option<String> {
         //parse the url and get the video id from the url
@@ -95,4 +98,4 @@ pub mod youtube_api {
 
 
     }
-}
+ }
