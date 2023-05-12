@@ -1,20 +1,3 @@
-pub mod youtube_config {
-
-    use config as config_reader;
-    use config::ConfigError;
-
-    pub fn new(file: &str) -> Result<String,ConfigError> {
-
-        let config = config_reader::Config::builder()
-            .add_source(config::File::new(file,config::FileFormat::Ini))
-            .build()
-            .unwrap();
-        config.get_string("youtube.api_key")
-
-    }
-
-}
-
 pub mod youtube_api { 
 
     use std::collections::HashMap;
