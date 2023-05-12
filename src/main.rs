@@ -3,9 +3,13 @@ use reqwest::blocking::{Client,Response};
 use serde_json::Value;
 use youtube_comment_search::{youtube_api,youtube_url};
 use config as config_reader;
+use std::env;
+
 
 fn main() -> Result<(), Box<dyn Error>> {
 
+    let args: Vec<String> = env::args().collect();
+    dbg!(args);
     //TODO improve the config intake error handling
     //and move this to a config option ffrom the cli
     let config_file_name: &str = "secrets.ini";
@@ -18,8 +22,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             std::process::exit(1);
         }
         );
-
-    let api_key: String = config.get_string("api_key").unwrap_or_else(|error| {
+    let api_key: String = config.get_string("youtube.api_key").unwrap_or_else(|error| {
         eprintln!("Error reading api_key from config file: {error}");
         std::process::exit(1);
     }
