@@ -1,5 +1,5 @@
 use std::error::Error;
-use reqwest::blocking::{Client,Response};
+use reqwest::blocking::Client;
 use serde_json::Value;
 use youtube_comment_search::{youtube_api,youtube_url};
 use config as config_reader;
