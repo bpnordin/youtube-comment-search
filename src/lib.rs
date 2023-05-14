@@ -57,25 +57,28 @@ pub mod youtube_api {
 
     use url::Url;
 
+    //TODO make custom error types
     pub fn parse_youtube_url(video_url: &str) -> Option<String> {
         //parse the url and get the video id from the url
         //make sure the url is from youtube
         //the second is just a paramater of v
 
-        let url = match Url::parse(video_url){
-            Ok(url) => url,
-            Err(_) => return None
-        };
-
+        let url = Url::parse(video_url).unwrap_or_else(|error| {
+            eprintln!("Can't parse url: {error}");
+            std::process::exit(1);
+        }
+        );
         //there are 2 types of url, the shared youtu.be/VIDEO_ID
         //and the youtube.com/watch?v=VIDEO_ID
         let video_id = match url.host_str()
         {
             //https://doc.rust-lang.org/std/option/enum.Option.html#method.map
+            Some("www.youtube.com") =>  url.query().map(|q| q.to_owned()),
             Some("youtube.com") =>  url.query().map(|q| q.to_owned()),
             Some("youtu.be") =>  url.path().split('/').last().map(|s| s.to_owned()),
             _ =>  None
         };
+        dbg!(&video_id);
         return video_id
 
 
