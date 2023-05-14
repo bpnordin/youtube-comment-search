@@ -19,8 +19,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let cli = Cli::parse();
 
-    //TODO improve the config intake error handling
-    //and move this to a config option ffrom the cli
+    let video_url: String = match cli.video_url{ 
+        Some(url) => url,
+        None => {
+            eprintln!("No video url argument provided, please provide one");
+            std::process::exit(1);
+        }
+    };
+    dbg!(&video_url);
 
     let config_file = config_reader::File::new(&cli.config, config::FileFormat::Ini);
     let config = config_reader::Config::builder()
@@ -37,11 +43,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         std::process::exit(1);
     }
     );
-    // TODO make this a user input so this can be done with CLI
-    // and more 
-    let video_url: &str = "https://youtu.be/Ou5xmqgkN9c";
 
-    let video_id = match youtube_url::parse_youtube_url(video_url) 
+
+    let video_id = match youtube_url::parse_youtube_url(&video_url.as_str()) 
         {
         Some(value) => value,
         None =>
