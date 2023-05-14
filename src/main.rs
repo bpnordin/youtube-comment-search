@@ -3,17 +3,26 @@ use reqwest::blocking::Client;
 use serde_json::Value;
 use youtube_comment_search::{youtube_api,youtube_url};
 use config as config_reader;
-use std::env;
+use clap::Parser;
 
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    video_url: Option<String>,
+    #[arg(short,long)]
+    search_term: Option<String>,
+    #[arg(short,long,default_value_t = String::from("secrets.ini"))]
+    config: String,
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
 
-    let args: Vec<String> = env::args().collect();
-    dbg!(args);
+    let cli = Cli::parse();
+
     //TODO improve the config intake error handling
     //and move this to a config option ffrom the cli
-    let config_file_name: &str = "secrets.ini";
-    let config_file = config_reader::File::new(config_file_name, config::FileFormat::Ini);
+
+    let config_file = config_reader::File::new(&cli.config, config::FileFormat::Ini);
     let config = config_reader::Config::builder()
         .add_source(config_file)
         .build()  
@@ -22,6 +31,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             std::process::exit(1);
         }
         );
+
     let api_key: String = config.get_string("youtube.api_key").unwrap_or_else(|error| {
         eprintln!("Error reading api_key from config file: {error}");
         std::process::exit(1);
@@ -48,10 +58,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let request_get_comments = youtube_api::request_video_comment_thread(
         &video_id, &api_key, &client).unwrap().text()?;
     
-    let yt_data: Value = serde_json::from_str(&request_get_comments)?;
-    println!("{:#?}",yt_data);
+    let _yt_data: Value = serde_json::from_str(&request_get_comments)?;
 
-    println!("Video ID: {}", video_id);
+    dbg!(&video_id);
 
     Ok(())
 }
