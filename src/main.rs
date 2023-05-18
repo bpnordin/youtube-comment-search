@@ -1,7 +1,7 @@
 use std::error::Error;
 use reqwest::blocking::Client;
 use serde_json::Value;
-use youtube_comment_search::{youtube_api,youtube_url};
+use youtube_comment_search::youtube_api::{self, youtube_url_parsing};
 use config as config_reader;
 use clap::Parser;
 
@@ -45,10 +45,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
 
 
-    let video_id = match youtube_url::parse_youtube_url(&video_url.as_str()) 
+    let video_id = match youtube_url_parsing::get_video_id_from_url(&video_url) 
         {
-        Some(value) => value,
-        None =>
+        Ok(value) => value,
+        Err(_) =>
             {
             println!("Failed to parse the URL \x1b[31m{}\x1b[0m...exiting"
                      ,video_url);

@@ -52,36 +52,87 @@ pub mod youtube_api {
         }
 
     }
-}
- pub mod youtube_url {
 
-    use url::Url;
+    pub mod youtube_url_parsing {
 
-    //TODO make custom error types
-    pub fn parse_youtube_url(video_url: &str) -> Option<String> {
-        //parse the url and get the video id from the url
-        //make sure the url is from youtube
-        //the second is just a paramater of v
+        use url;
+        use core::panic;
+        use std::error;
+        use std::fmt;
+        use regex::RegexSet;
 
-        let url = Url::parse(video_url).unwrap_or_else(|error| {
-            eprintln!("Can't parse url: {error}");
-            std::process::exit(1);
+
+        #[derive(Debug)]
+        pub enum YoutubeUrlError {
+            ParseError(url::ParseError),
+            InvalidDomain,
+            NoVideoIdFound,
         }
-        );
-        //there are 2 types of url, the shared youtu.be/VIDEO_ID
-        //and the youtube.com/watch?v=VIDEO_ID
-        let video_id = match url.host_str()
-        {
-            //https://doc.rust-lang.org/std/option/enum.Option.html#method.map
-            Some("www.youtube.com") =>  url.query().map(|q| q.to_owned()),
-            Some("youtube.com") =>  url.query().map(|q| q.to_owned()),
-            Some("youtu.be") =>  url.path().split('/').last().map(|s| s.to_owned()),
-            _ =>  None
-        };
-        dbg!(&video_id);
-        return video_id
+
+        impl error::Error for YoutubeUrlError {}
+
+        impl From<url::ParseError> for YoutubeUrlError {
+            fn from(err: url::ParseError) -> YoutubeUrlError {
+                YoutubeUrlError::ParseError(err)
+            }
+        }
+
+        impl fmt::Display for YoutubeUrlError {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                match *self {
+                    YoutubeUrlError::ParseError(ref err) => 
+                        write!(f,"Url Parse Error: {}",err),
+                    YoutubeUrlError::InvalidDomain =>
+                        write!(f,"Not a valid youtube video url"),
+                    YoutubeUrlError::NoVideoIdFound =>
+                        write!(f,"No video found from URL"),
+                }
+            }
+        }
+
+        //returns the String of the video id from a URL
+        pub fn get_video_id_from_url(video_url: &str) -> Result<String,YoutubeUrlError> {
+
+            //parse the url and get the video id from the url
+            //make sure the url is from youtube
+            //the second is just a paramater of v
+            let re_video_domain: RegexSet = RegexSet::new(&[
+                                                          r"^w*\.*youtube.com",//for youtube.com
+                                                          r"^w*\.*.youtu.be",//for youtu.be
+            ]).unwrap();
+
+            let youtube_domains = vec!["youtube.com","youtu.be","www.youtube.com",
+            "www.youtu.be"];
 
 
+            let url_parser = url::Url::parse(video_url)?; 
 
+            dbg!(&url_parser);
+
+            //parse the url that we now have
+            //check if there is a host string
+            if let Some(url_host_string) = url_parser.host_str() {
+                return match youtube_domains.contains(&url_host_string){
+                    true => match re_video_domain.matches(&url_host_string)
+                        .into_iter()
+                        .collect::<Vec<_>>()
+                        .as_slice() {
+                            [0] => { //youtube.com
+                                url_parser.query().ok_or(
+                                    YoutubeUrlError::NoVideoIdFound)
+                                    .map(|s| s.to_owned())
+                            },
+                            [1] => { //youtu.be
+                                Ok(url_parser.path().to_string())
+                            },
+                            [0,1] => panic!("we have mathced too many urls"),
+                            _ => panic!("we have not matched any urls"),
+                        },
+                    false => Err(YoutubeUrlError::InvalidDomain),
+                }
+            }else {
+                panic!("There is no host string on ");
+            }
+        }
     }
- }
+} 
