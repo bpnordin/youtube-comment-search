@@ -96,10 +96,11 @@ pub mod youtube_api {
             //parse the url and get the video id from the url
             //make sure the url is from youtube
             //the second is just a paramater of v
-            let re_video_domain: RegexSet = RegexSet::new(&[
-                                                          r"^w*\.*youtube.com",//for youtube.com
-                                                          r"^w*\.*.youtu.be",//for youtu.be
-            ]).unwrap();
+            let re_video_domain: 
+                RegexSet = RegexSet::new(&[
+                                         r"^w*\.*youtube.com",//for youtube.com
+                                         r"^w*\.*.youtu.be",//for youtu.be
+                ]).unwrap();
 
             let youtube_domains = vec!["youtube.com","youtu.be","www.youtube.com",
             "www.youtu.be"];
