@@ -7,6 +7,8 @@ tell you if something has been changed. We can have a local cache for
 searches, and only go get the comment when it changed
 - a search takes 100 quota. While we can get 100 comment threads with 1 quota.
     - do the math to find out which one is better
+- figure out the async stuff for CLI (main.rs) and for the API (lib.rs)
+- integration tests
 
 ### Structure of search + thoughts
 - [Comment Threads](https://developers.google.com/youtube/v3/docs/commentThreads/list)
@@ -26,3 +28,5 @@ changes
     contain all replies to a comment, and you need to use
     the comments.list method if you want to retrieve all replies for a particular comment.)
 - use a text search ono the machine itself (https://github.com/quickwit-oss/tantivy)
+- make a script to auto search channels for terms
+

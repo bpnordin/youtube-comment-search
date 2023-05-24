@@ -2,6 +2,7 @@
 name = "youtube_comment_search"
 version = "0.1.0"
 edition = "2021"
+about = "serach youtube comments via command line using youtube v3 api"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,3 +11,6 @@ reqwest = { version = "0.11", features = ["blocking", "json"] }
 serde_json = "1.0.96"
 config = "0.13.3"
 url = "2.3.1"
+clap = {version = "4.2.7", features = ["derive"]}
+regex = "1.8.1"
+lazy_static = "1.4.0"

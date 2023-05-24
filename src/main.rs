@@ -1,118 +1,87 @@
 use std::error::Error;
-use config::Config;
-use std::collections::HashMap;
-use url::Url;
-use reqwest::blocking::{Client,Response};
+use reqwest::blocking::Client;
 use serde_json::Value;
+use url::ParseError;
+use youtube_comment_search::youtube_api::{self, youtube_url_parsing,
+youtube_url_parsing::YoutubeUrlError, YoutubeVideoComments};
+use config as config_reader;
+use clap::Parser;
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    video_url: Option<String>,
+    #[arg(short,long)]
+    search_term: Option<String>,
+    #[arg(short,long,default_value_t = String::from("secrets.ini"))]
+    config: String,
+}
 
 fn main() -> Result<(), Box<dyn Error>> {
 
-    // get the google youtube api
-    let config = Config::builder()
-        .add_source(config::File::new("secrets",config::FileFormat::Ini))
-        .build()
-        .unwrap();
-    let api_key: String = config.get_string("youtube.api_key")?;
+    let cli = Cli::parse();
 
-    // TODO make this a user input so this can be done with CLI
-    let video_url: &str = "https://youtu.be/Ou5xmqgkN9c";
+    let video_url: String = match cli.video_url{ 
+        Some(url) => url,
+        None => {
+            eprintln!("No video url argument provided, please provide one");
+            std::process::exit(1);
+        }
+    };
+    dbg!(&video_url);
 
-    let video_id = match parse_youtube_url(video_url) 
+    let config_file = config_reader::File::new(&cli.config, config::FileFormat::Ini);
+    let config = config_reader::Config::builder()
+        .add_source(config_file)
+        .build()  
+        .unwrap_or_else(|error| {
+            eprintln!("Error reading config file: {error}");
+            std::process::exit(1);
+        }
+        );
+
+    let api_key: String = config.get_string("youtube.api_key").unwrap_or_else(|error| {
+        eprintln!("Error reading api_key from config file: {error}");
+        std::process::exit(1);
+    }
+    );
+
+    let video_id = match youtube_url_parsing::get_video_id_from_url(&video_url) 
+    {
+        Ok(value) => value,
+        Err(YoutubeUrlError::InvalidDomain) => {
+            eprintln!("Invalid Domain, please provide either a youtube.com or 
+                      youtu.be url");
+            return Ok(()) // early return
+        },
+        Err(YoutubeUrlError::NoVideoIdFound) => {
+            eprintln!("No video ID found in the url {video_url}");
+            return Ok(()) // early return
+        },
+        Err(_) =>
         {
-        Some(value) => value,
-        None =>
-            {
-            println!("Failed to parse the URL \x1b[31m{}\x1b[0m...exiting"
-                     ,video_url);
-            return Ok(())
-            }
-        };
+            eprintln!("Failed to parse the URL \x1b[31m{}\x1b[0m...exiting"
+                      ,video_url);
+            return Ok(()) // early return
+        }
+    };
+    dbg!(&video_id);
+
 
     let client = Client::builder().build()?;
 
+    let video1 = youtube_api::YoutubeVideoComments {
+        video_id: video_id.to_string(),
+        api_key: api_key.to_string(),
+        client: client.to_owned()
+    };
     //parse with serde_json
-    let request_get_comments = request_video_comment_thread(
-        &video_id, &api_key, &client).unwrap().text()?;
-    
-    let yt_data: Value = serde_json::from_str(&request_get_comments)?;
-    println!("{:#?}",yt_data);
+    let request_get_comments = video1.request_video_comment_thread().unwrap().text()?;
 
-    println!("Video ID: {}", video_id);
+    let yt_data: Value = serde_json::from_str(&request_get_comments)?;
+    dbg!(&yt_data);
+
 
     Ok(())
 }
 
-fn request_next_page(video_id: &str, api_key: &str, client: &Client, url: &str,
-                                next_page_token: &str) -> Option<String> {
-    //create the request for the next page
-
-    // https://developers.google.com/youtube/v3/docs/commentThreads/list
-    let mut params = HashMap::new();
-    params.insert("part","id");
-    params.insert("videoId", &video_id);
-    params.insert("key",&api_key);
-    params.insert("maxResults","5");
-    params.insert("pageToken",&next_page_token);
-
-    let request_next_page = match client.get(url)
-        .query(&params)
-        .build() {
-            Ok(req) => req,
-            Err(_) => return None
-        };
-    
-    Some(request_next_page.url().to_string())
-
-}
-
-fn request_video_comment_thread(video_id: &str, api_key: &str,
-                                client: &Client) -> Option<Response> {
-
-    // add paramaters 
-    let base_url: &str = "https://www.googleapis.com/youtube/v3/commentThreads";
-    // https://developers.google.com/youtube/v3/docs/commentThreads/list
-    let mut params = HashMap::new();
-    params.insert("part","id,replies");
-    params.insert("videoId", &video_id);
-    params.insert("key",&api_key);
-    params.insert("maxResults","5");
-
-    let request_get_comments = match client.get(base_url)
-        .query(&params)
-        .build() {
-            Ok(req) => req,
-            Err(_) => return None
-        };
-
-    match client.execute(request_get_comments)
-    {
-        Ok(response) => Some(response),
-        Err(_) => None
-    }
-
-}
-
-fn parse_youtube_url(video_url: &str) -> Option<String> {
-    //parse the url and get the video id from the url
-    //make sure the url is from youtube
-    //the second is just a paramater of v
-
-    let url = match Url::parse(video_url){
-        Ok(url) => url,
-        Err(_) => return None
-    };
-
-    //there are 2 types of url, the shared youtu.be/VIDEO_ID
-    //and the youtube.com/watch?v=VIDEO_ID
-    let video_id = match url.host_str()
-    {
-        //https://doc.rust-lang.org/std/option/enum.Option.html#method.map
-        Some("youtube.com") =>  url.query().map(|q| q.to_owned()),
-        Some("youtu.be") =>  url.path().split('/').last().map(|s| s.to_owned()),
-        _ =>  None
-    };
-    return video_id
-   
-
-
-}
