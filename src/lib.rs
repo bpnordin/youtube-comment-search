@@ -3,55 +3,66 @@ pub mod youtube_api {
     use std::collections::HashMap;
     use reqwest::blocking::{Client,Response};
 
-    pub fn request_next_page(video_id: &str, api_key: &str, client: &Client, url: &str,
-                         next_page_token: &str) -> Option<String> {
-        //create the request for the next page
-
-        // https://developers.google.com/youtube/v3/docs/commentThreads/list
-        let mut params = HashMap::new();
-        params.insert("part","id");
-        params.insert("videoId", &video_id);
-        params.insert("key",&api_key);
-        params.insert("maxResults","5");
-        params.insert("pageToken",&next_page_token);
-
-        let request_next_page = match client.get(url)
-            .query(&params)
-            .build() {
-                Ok(req) => req,
-                Err(_) => return None
-            };
-
-        Some(request_next_page.url().to_string())
-
+    #[derive(Debug)]
+    pub struct YoutubeVideoComments {
+        pub video_id: String,
+        pub api_key: String,
+        pub client: Client,
     }
 
-    pub fn request_video_comment_thread(video_id: &str, api_key: &str,
-                                    client: &Client) -> Option<Response> {
 
-        // add paramaters 
-        let base_url: &str = "https://www.googleapis.com/youtube/v3/commentThreads";
-        // https://developers.google.com/youtube/v3/docs/commentThreads/list
-        let mut params = HashMap::new();
-        params.insert("part","id,replies");
-        params.insert("videoId", &video_id);
-        params.insert("key",&api_key);
-        params.insert("maxResults","5");
+    impl YoutubeVideoComments {
 
-        let request_get_comments = match client.get(base_url)
-            .query(&params)
-            .build() {
-                Ok(req) => req,
-                Err(_) => return None
-            };
+        pub fn request_next_page(&self, url: &str,
+                                 next_page_token: &str) -> Option<String> {
+            //create the request for the next page
 
-        match client.execute(request_get_comments)
-        {
-            Ok(response) => Some(response),
-            Err(_) => None
+            // https://developers.google.com/youtube/v3/docs/commentThreads/list
+            let mut params = HashMap::new();
+            params.insert("part","id");
+            params.insert("videoId", &self.video_id);
+            params.insert("key",&self.api_key);
+            params.insert("maxResults","5");
+            params.insert("pageToken",&next_page_token);
+
+            let request_next_page = match self.client.get(url)
+                .query(&params)
+                .build() {
+                    Ok(req) => req,
+                    Err(_) => return None
+                };
+
+            Some(request_next_page.url().to_string())
+
         }
+        pub fn request_video_comment_thread(&self) -> Option<Response> {
 
+            // add paramaters 
+            let base_url: &str = "https://www.googleapis.com/youtube/v3/commentThreads";
+            // https://developers.google.com/youtube/v3/docs/commentThreads/list
+            let mut params = HashMap::new();
+            params.insert("part","id,replies");
+            params.insert("videoId", &self.video_id);
+            params.insert("key",&self.api_key);
+            params.insert("maxResults","5");
+
+            let request_get_comments = match self.client.get(base_url)
+                .query(&params)
+                .build() {
+                    Ok(req) => req,
+                    Err(_) => return None
+                };
+
+            match self.client.execute(request_get_comments)
+            {
+                Ok(response) => Some(response),
+                Err(_) => None
+            }
+
+        }
     }
+    
+
 
     pub mod youtube_url_parsing {
 

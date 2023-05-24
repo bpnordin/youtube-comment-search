@@ -3,7 +3,7 @@ use reqwest::blocking::Client;
 use serde_json::Value;
 use url::ParseError;
 use youtube_comment_search::youtube_api::{self, youtube_url_parsing,
-youtube_url_parsing::YoutubeUrlError};
+youtube_url_parsing::YoutubeUrlError, YoutubeVideoComments};
 use config as config_reader;
 use clap::Parser;
 
@@ -66,15 +66,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
     dbg!(&video_id);
-    
+
 
     let client = Client::builder().build()?;
 
+    let video1 = youtube_api::YoutubeVideoComments {
+        video_id: video_id.to_string(),
+        api_key: api_key.to_string(),
+        client: client.to_owned()
+    };
     //parse with serde_json
-    let request_get_comments = youtube_api::request_video_comment_thread(
-        &video_id, &api_key, &client).unwrap().text()?;
-    
-    let _yt_data: Value = serde_json::from_str(&request_get_comments)?;
+    let request_get_comments = video1.request_video_comment_thread().unwrap().text()?;
+
+    let yt_data: Value = serde_json::from_str(&request_get_comments)?;
+    dbg!(&yt_data);
 
 
     Ok(())
