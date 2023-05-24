@@ -171,3 +171,47 @@ pub mod youtube_api {
 
     }
 } 
+
+#[cfg(test)]
+mod tests {
+    use crate::youtube_api::youtube_url_parsing::get_video_id_from_url;
+
+    
+    //test the url parser
+    #[test]
+    fn url_parser_video_id_success() {
+        //test successfully getting the video id
+        let video_url = "https://www.youtube.com/watch?v=JVtkE8cgdOw";
+        let share_url = "https://youtu.be/JVtkE8cgdOw";
+        let video_id = "JVtkE8cgdOw";
+        
+        let video_url_id = get_video_id_from_url(video_url);
+        assert!(video_url_id.is_ok());
+        match video_url_id {
+            Ok(id) => assert_eq!(id,video_id),
+            Err(_) => ()
+        }
+
+        let share_url_id = get_video_id_from_url(share_url);
+        assert!(share_url_id.is_ok());
+        match share_url_id {
+            Ok(id) => assert_eq!(id,video_id),
+            Err(_) => ()
+        }
+        
+    }
+
+    #[test]
+    fn url_parser_video_id_fail() {
+
+        //test when url is not correct
+        let no_video_id = "https://www.youtube.com/";
+        let no_share_id = "https://youtu.be/";
+        let wrong_domain = "twitter.com";
+        
+        assert!(get_video_id_from_url(no_video_id).is_err());
+        assert!(get_video_id_from_url(no_share_id).is_err());
+        assert!(get_video_id_from_url(wrong_domain).is_err());
+
+    }
+}

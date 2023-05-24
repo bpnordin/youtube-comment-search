@@ -1,9 +1,8 @@
 use std::error::Error;
 use reqwest::blocking::Client;
 use serde_json::Value;
-use url::ParseError;
 use youtube_comment_search::youtube_api::{self, youtube_url_parsing,
-youtube_url_parsing::YoutubeUrlError, YoutubeVideoComments};
+youtube_url_parsing::YoutubeUrlError};
 use config as config_reader;
 use clap::Parser;
 
@@ -75,6 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         api_key: api_key.to_string(),
         client: client.to_owned()
     };
+    dbg!(&video1);
     //parse with serde_json
     let request_get_comments = video1.request_video_comment_thread().unwrap().text()?;
 
