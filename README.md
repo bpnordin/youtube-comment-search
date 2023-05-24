@@ -28,3 +28,5 @@ changes
     contain all replies to a comment, and you need to use
     the comments.list method if you want to retrieve all replies for a particular comment.)
 - use a text search ono the machine itself (https://github.com/quickwit-oss/tantivy)
+- make a script to auto search channels for terms
+
