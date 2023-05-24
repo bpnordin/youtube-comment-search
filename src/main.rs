@@ -1,7 +1,9 @@
 use std::error::Error;
 use reqwest::blocking::Client;
 use serde_json::Value;
-use youtube_comment_search::youtube_api::{self, youtube_url_parsing};
+use url::ParseError;
+use youtube_comment_search::youtube_api::{self, youtube_url_parsing,
+youtube_url_parsing::YoutubeUrlError};
 use config as config_reader;
 use clap::Parser;
 
@@ -44,17 +46,27 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     );
 
-
     let video_id = match youtube_url_parsing::get_video_id_from_url(&video_url) 
-        {
+    {
         Ok(value) => value,
+        Err(YoutubeUrlError::InvalidDomain) => {
+            eprintln!("Invalid Domain, please provide either a youtube.com or 
+                      youtu.be url");
+            return Ok(()) // early return
+        },
+        Err(YoutubeUrlError::NoVideoIdFound) => {
+            eprintln!("No video ID found in the url {video_url}");
+            return Ok(()) // early return
+        },
         Err(_) =>
-            {
-            println!("Failed to parse the URL \x1b[31m{}\x1b[0m...exiting"
-                     ,video_url);
-            return Ok(())
-            }
-        };
+        {
+            eprintln!("Failed to parse the URL \x1b[31m{}\x1b[0m...exiting"
+                      ,video_url);
+            return Ok(()) // early return
+        }
+    };
+    dbg!(&video_id);
+    
 
     let client = Client::builder().build()?;
 
@@ -64,7 +76,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     
     let _yt_data: Value = serde_json::from_str(&request_get_comments)?;
 
-    dbg!(&video_id);
 
     Ok(())
 }

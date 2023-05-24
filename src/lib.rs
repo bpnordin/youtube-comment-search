@@ -59,7 +59,7 @@ pub mod youtube_api {
         use core::panic;
         use std::error;
         use std::fmt;
-        use regex::RegexSet;
+        use regex::Regex;
 
 
         #[derive(Debug)]
@@ -90,50 +90,73 @@ pub mod youtube_api {
             }
         }
 
+        const YOUTUBE_DOMAINS: [&str;4] = ["youtube.com","youtu.be","www.youtube.com",
+        "www.youtu.be"];
+
         //returns the String of the video id from a URL
-        pub fn get_video_id_from_url(video_url: &str) -> Result<String,YoutubeUrlError> {
+        pub fn get_video_id_from_url(video_url: &str) 
+            -> Result<String,YoutubeUrlError> {
 
             //parse the url and get the video id from the url
             //make sure the url is from youtube
             //the second is just a paramater of v
-            let re_video_domain: 
-                RegexSet = RegexSet::new(&[
-                                         r"^w*\.*youtube.com",//for youtube.com
-                                         r"^w*\.*.youtu.be",//for youtu.be
-                ]).unwrap();
-
-            let youtube_domains = vec!["youtube.com","youtu.be","www.youtube.com",
-            "www.youtu.be"];
-
-
             let url_parser = url::Url::parse(video_url)?; 
-
-            dbg!(&url_parser);
 
             //parse the url that we now have
             //check if there is a host string
             if let Some(url_host_string) = url_parser.host_str() {
-                return match youtube_domains.contains(&url_host_string){
-                    true => match re_video_domain.matches(&url_host_string)
-                        .into_iter()
-                        .collect::<Vec<_>>()
-                        .as_slice() {
-                            [0] => { //youtube.com
-                                url_parser.query().ok_or(
-                                    YoutubeUrlError::NoVideoIdFound)
-                                    .map(|s| s.to_owned())
-                            },
-                            [1] => { //youtu.be
-                                Ok(url_parser.path().to_string())
-                            },
-                            [0,1] => panic!("we have mathced too many urls"),
-                            _ => panic!("we have not matched any urls"),
-                        },
+                return match YOUTUBE_DOMAINS.contains(&url_host_string){
+                    true => {
+                        //we want to now do something with the fact that we know
+                        //we have a youtube url
+                        parse_youtube_domain(&url_parser)
+                    },
                     false => Err(YoutubeUrlError::InvalidDomain),
                 }
             }else {
-                panic!("There is no host string on ");
+                panic!("There is no host string");
             }
         }
+
+        fn parse_youtube_domain(url_parser: &url::Url)
+            -> Result<String,YoutubeUrlError> {
+            match url_parser.host_str() {
+                Some(host) if host == YOUTUBE_DOMAINS[0] || host == YOUTUBE_DOMAINS[2] => {
+                    //youtube.com
+                    //there should be query v=video+id
+                    let query = url_parser.query()
+                        .ok_or(YoutubeUrlError::NoVideoIdFound)
+                        .map(|s| s.to_string())?;
+
+                    //take out the v=
+                    let re = Regex::new(r"^v=(.+)").unwrap();
+                    Ok(re.captures(&query)
+                        .ok_or(YoutubeUrlError::NoVideoIdFound)?
+                        .get(1)
+                        .ok_or(YoutubeUrlError::NoVideoIdFound)?
+                        .as_str()
+                        .to_string())
+
+
+                },
+                Some(host) if host == YOUTUBE_DOMAINS[1] || host == YOUTUBE_DOMAINS[3] => {
+                    //youtu.be
+                    //there should just be a path /video_id
+                    let path = url_parser.path().to_string();
+                    // take out /
+                    let re = Regex::new(r"^(?:/)(.+)").unwrap();
+                    Ok(re.captures(&path)
+                        .ok_or(YoutubeUrlError::NoVideoIdFound)?
+                        .get(1)
+                        .ok_or(YoutubeUrlError::NoVideoIdFound)?
+                        .as_str()
+                        .to_string())
+                },
+                _ => {
+                    Err(YoutubeUrlError::NoVideoIdFound)
+                },
+            }
+            }
+
     }
 } 
