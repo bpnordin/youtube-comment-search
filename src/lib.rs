@@ -2,6 +2,7 @@ pub mod youtube_api {
 
     use std::collections::HashMap;
     use reqwest::blocking::{Client,Response};
+    use serde_json::Value;
 
     #[derive(Debug)]
     pub struct YoutubeVideoComments {
@@ -13,7 +14,7 @@ pub mod youtube_api {
 
     impl YoutubeVideoComments {
 
-        pub fn request_next_page(&self, url: &str,
+        fn request_next_page(&self, url: &str,
                                  next_page_token: &str) -> Option<String> {
             //create the request for the next page
 
@@ -35,7 +36,7 @@ pub mod youtube_api {
             Some(request_next_page.url().to_string())
 
         }
-        pub fn request_video_comment_thread(&self) -> Option<Response> {
+        fn request_video_comment_thread_list(&self) -> Option<Response> {
 
             // add paramaters 
             let base_url: &str = "https://www.googleapis.com/youtube/v3/commentThreads";
@@ -55,11 +56,32 @@ pub mod youtube_api {
 
             match self.client.execute(request_get_comments)
             {
-                Ok(response) => Some(response),
+                Ok(response) => {
+                    Some(response)
+                },
                 Err(_) => None
             }
+        }
+
+        fn parse_video_comment_thread_list(&self,comment_thread_list_response: Option<Response>) {
+
+            let request_response_text = &comment_thread_list_response
+                .map(|response| response.text()
+                     .unwrap_or_else(|_| "".to_string()))
+                .unwrap_or_else(|| "".to_string());
+
+            let yt_data: Value = serde_json::from_str(&request_response_text)
+                .unwrap_or_else(|_| Value::Null);
+
+            dbg!(&yt_data);
 
         }
+        
+        pub fn search_comments(&self, search_term: &str) {
+            let response = self.request_video_comment_thread_list();
+            self.parse_video_comment_thread_list(response);
+        }
+
     }
     
 

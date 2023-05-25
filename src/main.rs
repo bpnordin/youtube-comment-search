@@ -71,7 +71,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             return Ok(()) // early return
         }
     };
-    dbg!(&video_id);
 
 
     let client = Client::builder().build()?;
@@ -83,11 +82,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
     dbg!(&video1);
     //parse with serde_json
-    let request_get_comments = video1.request_video_comment_thread().unwrap().text()?;
-
-    let yt_data: Value = serde_json::from_str(&request_get_comments)?;
-    dbg!(&yt_data);
-
+    video1.search_comments(&search_term);
 
     Ok(())
 }
