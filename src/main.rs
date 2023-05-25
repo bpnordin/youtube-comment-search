@@ -10,7 +10,6 @@ use clap::Parser;
 #[command(author, version, about, long_about = None)]
 struct Cli {
     video_url: Option<String>,
-    #[arg(short,long)]
     search_term: Option<String>,
     #[arg(short,long,default_value_t = String::from("secrets.ini"))]
     config: String,
@@ -27,7 +26,15 @@ fn main() -> Result<(), Box<dyn Error>> {
             std::process::exit(1);
         }
     };
-    dbg!(&video_url);
+
+    #[allow(unused_variables)]
+    let search_term: String = match cli.search_term{ 
+        Some(search) => search,
+        None => {
+            eprintln!("No search term provided, please provide one");
+            std::process::exit(1);
+        }
+    };
 
     let config_file = config_reader::File::new(&cli.config, config::FileFormat::Ini);
     let config = config_reader::Config::builder()
