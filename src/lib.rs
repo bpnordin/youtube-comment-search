@@ -1,6 +1,7 @@
 pub mod youtube_api { 
 
     use std::collections::HashMap;
+    use lazy_static::__Deref;
     use reqwest::blocking::{Client,Response};
     use serde_json::Value;
 
@@ -11,42 +12,27 @@ pub mod youtube_api {
         pub client: Client,
     }
 
-
+    //I think I will have to implement my own errors
+    //but not before i get the data parsing out of the way
+    //I am excited to see how that goes in rust
+    
     impl YoutubeVideoComments {
 
-        fn request_next_page(&self, url: &str,
-                                 next_page_token: &str) -> Option<String> {
-            //create the request for the next page
 
+        fn requst_video_comment_list(&self,next_page_token: Option<&str>) -> Option<Response> {
+
+            // add paramaters 
+            let base_url: &str = "https://www.googleapis.com/youtube/v3/comments";
             // https://developers.google.com/youtube/v3/docs/commentThreads/list
             let mut params = HashMap::new();
             params.insert("part","id");
             params.insert("videoId", &self.video_id);
             params.insert("key",&self.api_key);
-            params.insert("maxResults","5");
-            params.insert("pageToken",&next_page_token);
-
-            let request_next_page = match self.client.get(url)
-                .query(&params)
-                .build() {
-                    Ok(req) => req,
-                    Err(_) => return None
-                };
-
-            Some(request_next_page.url().to_string())
-
-        }
-        fn request_video_comment_thread_list(&self) -> Option<Response> {
-
-            // add paramaters 
-            let base_url: &str = "https://www.googleapis.com/youtube/v3/commentThreads";
-            // https://developers.google.com/youtube/v3/docs/commentThreads/list
-            let mut params = HashMap::new();
-            params.insert("part","id,replies");
-            params.insert("videoId", &self.video_id);
-            params.insert("key",&self.api_key);
-            params.insert("maxResults","5");
-
+            params.insert("maxResults","100");
+            if next_page_token.is_some() {
+                params.insert("pageToken",&next_page_token.unwrap() );
+            }
+            
             let request_get_comments = match self.client.get(base_url)
                 .query(&params)
                 .build() {
@@ -63,23 +49,132 @@ pub mod youtube_api {
             }
         }
 
-        fn parse_video_comment_thread_list(&self,comment_thread_list_response: Option<Response>) {
+        fn request_video_comment_thread_list(&self, next_page_token: Option<&str>) -> Option<Response> {
 
-            let request_response_text = &comment_thread_list_response
-                .map(|response| response.text()
-                     .unwrap_or_else(|_| "".to_string()))
-                .unwrap_or_else(|| "".to_string());
+            // add paramaters 
+            let base_url: &str = "https://www.googleapis.com/youtube/v3/commentThreads";
+            // https://developers.google.com/youtube/v3/docs/commentThreads/list
+            let mut params = HashMap::new();
+            params.insert("part","id");
+            params.insert("videoId", &self.video_id);
+            params.insert("textFormat","plainText");
+            params.insert("key",&self.api_key);
+            params.insert("maxResults","100");
+            if next_page_token.is_some() {
+                params.insert("pageToken",&next_page_token.unwrap() );
+            }
+            
+            let request_get_comments = match self.client.get(base_url)
+                .query(&params)
+                .build() {
+                    Ok(req) => req,
+                    Err(_) => return None
+                };
 
-            let yt_data: Value = serde_json::from_str(&request_response_text)
-                .unwrap_or_else(|_| Value::Null);
+            match self.client.execute(request_get_comments)
+            {
+                Ok(response) => {
+                    Some(response)
+                },
+                Err(_) => None
+            }
+        }
 
-            dbg!(&yt_data);
+        fn request_video_comments(&self, comment_id: &str) -> Option<Response> {
+
+            // add paramaters 
+            let base_url: &str = "https://www.googleapis.com/youtube/v3/comments";
+            // https://developers.google.com/youtube/v3/docs/commentThreads/list
+            let mut params = HashMap::new();
+            params.insert("part","id,snippet");
+            params.insert("id", comment_id);
+            params.insert("key",&self.api_key);
+            
+            let request_get_comments = match self.client.get(base_url)
+                .query(&params)
+                .build() {
+                    Ok(req) => req,
+                    Err(_) => return None
+                };
+
+            match self.client.execute(request_get_comments)
+            {
+                Ok(response) => {
+                    Some(response)
+                },
+                Err(_) => None
+            }
+        }
+
+        fn parse_response(&self,yt_req_response: Option<Response>) -> Option<Value> {
+
+            let request_response_text = &yt_req_response?.text().ok()?;
+
+             serde_json::from_str(&request_response_text)
+                .unwrap_or_else(|_| None)
+        } 
+
+        fn parse_video_comment_thread_list(&self,parsed_response: &Value) -> Vec<String> {
+
+            //get the comment threads and return them
+            parsed_response["items"].as_array().unwrap()
+                .into_iter()
+                .map(|var| var["id"].as_str().map(|s| s.to_string()))
+                .flatten()
+                .collect()
+
+        }
+
+        fn parse_video_comment_list(&self,parsed_response: &Value) -> String {
+
+            parsed_response["items"].as_array().unwrap()
+                .first().unwrap()
+                .get("snippet").unwrap()
+                .get("textDisplay").unwrap().as_str().unwrap()
+                .to_string()
+        }
+
+
+        fn get_next_page_token(&self,parsed_response: &Value) -> Option<String> {
+            
+            //TODO error parsing
+            parsed_response["nextPageToken"].as_str().map(|s| s.to_string())
 
         }
         
         pub fn search_comments(&self, search_term: &str) {
-            let response = self.request_video_comment_thread_list();
-            self.parse_video_comment_thread_list(response);
+
+            let mut next_page_token:Option<String> = None;
+            let mut comment_thread_list: Vec<String> = Vec::new();
+
+            loop {
+                let token_str: Option<&str> = next_page_token.as_deref();
+                let response = self.request_video_comment_thread_list(token_str);
+                let parsed_response = self.parse_response(response).unwrap();
+                next_page_token = self.get_next_page_token(&parsed_response);
+                comment_thread_list.extend(self.parse_video_comment_thread_list(&parsed_response));
+
+                if next_page_token.is_none() {
+                    break;
+                }
+            }
+            dbg!(&comment_thread_list);
+
+            //now we take that list, and request each comment
+            //if there is a next page, get that too, but idk if there ever will be
+            
+            //code:
+            //loop through vec of comment ids
+            //request to youtube
+            //parse the request
+            //save the text
+            let comments: Vec<String> = comment_thread_list
+                .iter()
+                .map(|comment| self.request_video_comments(comment))
+                .map(|response| self.parse_response(response).unwrap())
+                .map(|parsed_response| self.parse_video_comment_list(&parsed_response))
+                .collect();
+            dbg!(comments);
         }
 
     }
