@@ -18,48 +18,18 @@ pub mod youtube_api {
     
     impl YoutubeVideoComments {
 
-
-        fn requst_video_comment_list(&self,next_page_token: Option<&str>) -> Option<Response> {
-
-            // add paramaters 
-            let base_url: &str = "https://www.googleapis.com/youtube/v3/comments";
-            // https://developers.google.com/youtube/v3/docs/commentThreads/list
-            let mut params = HashMap::new();
-            params.insert("part","id");
-            params.insert("videoId", &self.video_id);
-            params.insert("key",&self.api_key);
-            params.insert("maxResults","100");
-            if next_page_token.is_some() {
-                params.insert("pageToken",&next_page_token.unwrap() );
-            }
-            
-            let request_get_comments = match self.client.get(base_url)
-                .query(&params)
-                .build() {
-                    Ok(req) => req,
-                    Err(_) => return None
-                };
-
-            match self.client.execute(request_get_comments)
-            {
-                Ok(response) => {
-                    Some(response)
-                },
-                Err(_) => None
-            }
-        }
-
         fn request_video_comment_thread_list(&self, next_page_token: Option<&str>) -> Option<Response> {
 
             // add paramaters 
             let base_url: &str = "https://www.googleapis.com/youtube/v3/commentThreads";
             // https://developers.google.com/youtube/v3/docs/commentThreads/list
             let mut params = HashMap::new();
-            params.insert("part","id");
+            params.insert("part","id,snippet");
             params.insert("videoId", &self.video_id);
             params.insert("textFormat","plainText");
             params.insert("key",&self.api_key);
             params.insert("maxResults","100");
+
             if next_page_token.is_some() {
                 params.insert("pageToken",&next_page_token.unwrap() );
             }
@@ -80,7 +50,7 @@ pub mod youtube_api {
             }
         }
 
-        fn request_video_comments(&self, comment_id: &str) -> Option<Response> {
+        fn request_video_comments(&self, comment_id: &str, reply_count: usize) -> Option<Response> {
 
             // add paramaters 
             let base_url: &str = "https://www.googleapis.com/youtube/v3/comments";
@@ -88,7 +58,12 @@ pub mod youtube_api {
             let mut params = HashMap::new();
             params.insert("part","id,snippet");
             params.insert("id", comment_id);
+
+            if reply_count > 0 { params.insert("parentId", comment_id);}
+            else{ params.insert("id", comment_id);}
+
             params.insert("key",&self.api_key);
+
             
             let request_get_comments = match self.client.get(base_url)
                 .query(&params)
@@ -107,6 +82,7 @@ pub mod youtube_api {
         }
 
         fn parse_response(&self,yt_req_response: Option<Response>) -> Option<Value> {
+            //takes any request from youtube and gives back the serde_json
 
             let request_response_text = &yt_req_response?.text().ok()?;
 
@@ -114,15 +90,29 @@ pub mod youtube_api {
                 .unwrap_or_else(|_| None)
         } 
 
-        fn parse_video_comment_thread_list(&self,parsed_response: &Value) -> Vec<String> {
+        fn parse_video_comment_thread_list(&self,parsed_response: &Value) -> 
+            HashMap<String,usize> {
 
-            //get the comment threads and return them
-            parsed_response["items"].as_array().unwrap()
-                .into_iter()
-                .map(|var| var["id"].as_str().map(|s| s.to_string()))
-                .flatten()
-                .collect()
+            let item_iter = parsed_response["items"].as_array().unwrap();
+            let mut return_hash_map = HashMap::new();
 
+            //use return_hash_map.insert() to put items in here
+            for item in item_iter {
+                    // a list of items that are object 
+                    // item = {"id":String(id), snippet: object{"totalReplyCount" : i64}}
+                    let json_object = item.as_object();
+
+                    let id = json_object.and_then(|obj| obj.get("id"))
+                        .and_then(|id| id.as_str())
+                        .unwrap();
+
+                    let reply_count = json_object.and_then(|obj| obj.get("snippet"))
+                        .and_then(|snippet| snippet.get("totalReplyCount"))
+                        .and_then(|number| number.as_u64())
+                        .unwrap();
+                    return_hash_map.insert(String::from(id), reply_count as usize);
+            }
+            return_hash_map
         }
 
         fn parse_video_comment_list(&self,parsed_response: &Value) -> String {
@@ -130,7 +120,7 @@ pub mod youtube_api {
             parsed_response["items"].as_array().unwrap()
                 .first().unwrap()
                 .get("snippet").unwrap()
-                .get("textDisplay").unwrap().as_str().unwrap()
+                .get("textOriginal").unwrap().as_str().unwrap()
                 .to_string()
         }
 
@@ -145,12 +135,14 @@ pub mod youtube_api {
         pub fn search_comments(&self, search_term: &str) {
 
             let mut next_page_token:Option<String> = None;
-            let mut comment_thread_list: Vec<String> = Vec::new();
+            let mut comment_thread_list: HashMap<String,usize> = HashMap::new();
 
             loop {
+
                 let token_str: Option<&str> = next_page_token.as_deref();
                 let response = self.request_video_comment_thread_list(token_str);
                 let parsed_response = self.parse_response(response).unwrap();
+
                 next_page_token = self.get_next_page_token(&parsed_response);
                 comment_thread_list.extend(self.parse_video_comment_thread_list(&parsed_response));
 
@@ -159,22 +151,19 @@ pub mod youtube_api {
                 }
             }
             dbg!(&comment_thread_list);
+            dbg!(&comment_thread_list.len());
 
             //now we take that list, and request each comment
-            //if there is a next page, get that too, but idk if there ever will be
+            //if totalReplyCount > 0 then we need to request the parent id
+            //there might be a next page if the comment has enough replies
+            //the replies are in chronological order
+            //
             
             //code:
             //loop through vec of comment ids
             //request to youtube
             //parse the request
             //save the text
-            let comments: Vec<String> = comment_thread_list
-                .iter()
-                .map(|comment| self.request_video_comments(comment))
-                .map(|response| self.parse_response(response).unwrap())
-                .map(|parsed_response| self.parse_video_comment_list(&parsed_response))
-                .collect();
-            dbg!(comments);
         }
 
     }
