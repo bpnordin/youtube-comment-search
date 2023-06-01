@@ -1,6 +1,5 @@
 use std::error::Error;
 use reqwest::blocking::Client;
-use serde_json::Value;
 use youtube_comment_search::youtube_api::{self, youtube_url_parsing,
 youtube_url_parsing::YoutubeUrlError};
 use config as config_reader;
@@ -75,14 +74,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let client = Client::builder().build()?;
 
-    let video1 = youtube_api::YoutubeVideoComments {
+    let video1 = youtube_api::YoutubeVideo {
         video_id: video_id.to_string(),
         api_key: api_key.to_string(),
         client: client.to_owned()
     };
     dbg!(&video1);
     //parse with serde_json
-    video1.search_comments(&search_term);
+    youtube_api::search_comments(video1, &search_term);
 
     Ok(())
 }

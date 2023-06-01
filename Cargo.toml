@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 about = "serach youtube comments via command line using youtube v3 api"
 
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
